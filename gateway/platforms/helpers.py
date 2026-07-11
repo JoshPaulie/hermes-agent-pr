@@ -361,6 +361,11 @@ def convert_table_to_bullets(text: str) -> str:
     """Rewrite GFM pipe tables into bold-heading + bullet groups.
 
     Tables inside fenced code blocks are left alone.
+
+    When a table is not preceded by a blank line (common with cheap models
+    that skip paragraph breaks), a blank line is inserted before the
+    rendered output so the downstream MarkdownV2 parser correctly
+    delimits the bold heading that starts each row-group.
     """
     if '|' not in text or '-' not in text:
         return text
@@ -388,6 +393,14 @@ def convert_table_to_bullets(text: str) -> str:
             and i + 1 < len(lines)
             and TABLE_SEPARATOR_RE.match(lines[i + 1])
         ):
+            # Ensure a blank line precedes the rendered table when the
+            # preceding line is non-empty (the model skipped the paragraph
+            # break before the table).  This prevents the first bold
+            # heading from being adjacent to preceding text without a
+            # paragraph boundary, which can confuse MarkdownV2 parsers.
+            if out and out[-1]:
+                out.append('')
+
             table_block = [line, lines[i + 1]]
             j = i + 2
             while j < len(lines) and is_table_row(lines[j]):

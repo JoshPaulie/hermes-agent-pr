@@ -125,6 +125,69 @@ class TestConvertTableToBullets:
         text = "Plain **bold** text."
         assert convert_table_to_bullets(text) == text
 
+    def test_missing_blank_line_before_table_inserts_paragraph_break(self):
+        """When a table has no preceding blank line (common with cheap
+        models that skip paragraph breaks), a blank line is inserted
+        before the rendered content so the downstream MarkdownV2 parser
+        correctly delimits the bold heading that starts each row-group."""
+        text = (
+            "Here are the results:\n"
+            "| Player | Score |\n"
+            "|--------|-------|\n"
+            "| Alice  | 150   |"
+        )
+        out = convert_table_to_bullets(text)
+        # The blank line between "Here are the results:" and the table
+        # content is the inserted paragraph break.
+        assert 'Here are the results:\n\n**Alice**' in out
+
+    def test_blank_line_before_table_preserved(self):
+        """When a table IS preceded by a blank line, no additional
+        paragraph break is inserted — existing spacing is preserved."""
+        text = (
+            "Here are the results:\n"
+            "\n"
+            "| Player | Score |\n"
+            "|--------|-------|\n"
+            "| Alice  | 150   |"
+        )
+        out = convert_table_to_bullets(text)
+        # "\n\n**Alice**" means exactly one blank line (no extra).
+        assert 'Here are the results:\n\n**Alice**' in out
+
+    def test_table_at_start_of_text_no_extra_blank_line(self):
+        """When the table starts at the beginning of text, no blank
+        line is prepended."""
+        text = (
+            "| A | B |\n"
+            "|---|---|\n"
+            "| 1 | 2 |"
+        )
+        out = convert_table_to_bullets(text)
+        assert out.startswith('**1**')
+        # No leading blank line
+        assert not out.startswith('\n')
+
+    def test_multiple_tables_without_blank_lines_before_each(self):
+        """Each table that lacks a preceding blank line gets its own
+        paragraph break inserted."""
+        text = (
+            "First:\n"
+            "| A | B |\n"
+            "|---|---|\n"
+            "| 1 | 2 |\n"
+            "\n"
+            "Second:\n"
+            "| X | Y |\n"
+            "|---|---|\n"
+            "| 9 | 8 |"
+        )
+        out = convert_table_to_bullets(text)
+        # Blank line before first table (between "First:" and content)
+        assert 'First:\n\n**1**' in out
+        # Blank line before second table (between "Second:" and content)
+        assert 'Second:\n\n**9**' in out
+
     def test_row_groups_separated_by_blank_line(self):
         text = (
             "| A | B |\n"
