@@ -456,7 +456,7 @@ def test_time_awareness_injects_when_threshold_exceeded(monkeypatch):
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0  # 1 hour
-    agent._last_activity_ts = 1000.0  # far in the past
+    agent._last_user_turn_ts = 1000.0  # far in the past
 
     monkeypatch.setattr("time.time", lambda: 1000.0 + 7200.0)  # 2h gap
     # Mock hermes_time.now() to return a fixed weekday datetime
@@ -481,7 +481,7 @@ def test_time_awareness_skips_when_threshold_not_exceeded():
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0  # 1 hour
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
 
     with patch("time.time", return_value=1000.0 + 600.0):  # 10min gap
         ctx = _build(
@@ -496,7 +496,7 @@ def test_time_awareness_skips_when_disabled():
     agent = _FakeAgent()
     agent._time_awareness_enabled = False
     agent._time_awareness_threshold = 3600.0
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
 
     with patch("time.time", return_value=1000.0 + 7200.0):  # 2h gap
         ctx = _build(
@@ -512,7 +512,7 @@ def test_time_awareness_skips_first_turn():
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
 
     with patch("time.time", return_value=1000.0 + 7200.0):
         ctx = _build(agent, conversation_history=None)
@@ -526,7 +526,7 @@ def test_time_awareness_sets_persist_override_for_cli():
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
     agent._persist_user_message_override = None
 
     with patch("time.time", return_value=1000.0 + 7200.0):
@@ -547,7 +547,7 @@ def test_time_awareness_does_not_override_gateway_persist():
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
     agent._persist_user_message_override = "gateway-clean-msg"
 
     with patch("time.time", return_value=1000.0 + 7200.0):
@@ -569,7 +569,7 @@ def test_time_awareness_safe_on_injection_failure():
     agent = _FakeAgent()
     agent._time_awareness_enabled = True
     agent._time_awareness_threshold = 3600.0
-    agent._last_activity_ts = 1000.0
+    agent._last_user_turn_ts = 1000.0
 
     with patch("time.time", return_value=1000.0 + 7200.0):
         # Force the hermes_time import to raise.

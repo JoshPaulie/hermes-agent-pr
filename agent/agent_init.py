@@ -672,6 +672,12 @@ def init_agent(
     # notifications to show progress.
     agent._last_activity_ts: float = time.time()
     agent._last_activity_desc: str = "initializing"
+    # User-turn timestamp — tracks when the most recent user turn started.
+    # Separate from _last_activity_ts (heartbeat/activity tracking) because
+    # the gateway resets _last_activity_ts before each turn, which would
+    # destroy the gap signal used by the time-skip awareness feature.
+    # Updated unconditionally at the end of build_turn_context.
+    agent._last_user_turn_ts: float = time.time()
     agent._current_tool: str | None = None
     agent._api_call_count: int = 0
     # Opt-out flag for the between-turns MCP tool refresh (build_turn_context).

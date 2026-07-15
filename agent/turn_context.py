@@ -335,7 +335,7 @@ def build_turn_context(
     # persist override mechanism below.
     if getattr(agent, "_time_awareness_enabled", False) and conversation_history:
         _ta_threshold = getattr(agent, "_time_awareness_threshold", 7200.0)
-        _elapsed = time.time() - getattr(agent, "_last_activity_ts", time.time())
+        _elapsed = time.time() - getattr(agent, "_last_user_turn_ts", time.time())
         if _elapsed >= _ta_threshold:
             try:
                 from hermes_time import now as _hermes_now
@@ -650,6 +650,13 @@ def build_turn_context(
             ext_prefetch_cache = agent._memory_manager.prefetch_all(_query) or ""
         except Exception:
             pass
+
+    # Stamp the user-turn timestamp for the NEXT turn's gap check.
+    # Unconditional so _last_user_turn_ts stays accurate even when
+    # time-awareness is disabled or this is the first turn — the
+    # gateway does NOT reset this between turns (_last_activity_ts
+    # is the heartbeat that gets reset, see _init_cached_agent_for_turn).
+    agent._last_user_turn_ts = time.time()
 
     return TurnContext(
         user_message=user_message,
