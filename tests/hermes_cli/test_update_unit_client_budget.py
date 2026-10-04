@@ -145,3 +145,36 @@ def test_fleet_restart_repairs_a_system_unit_that_cannot_park_on_exit_78(monkeyp
         assert refreshed == []
         assert out.count("RestartPreventExitStatus=78") == 1 and "hermes-gateway lacks" in out
         assert "sudo hermes gateway install --system" in out
+
+
+@pytest.mark.parametrize("scope_name,edit_cmd", [
+    ("user", "systemctl --user edit hermes-serve.service"),
+    ("system", "sudo systemctl edit hermes-serve.service"),
+])
+def test_stale_serve_unit_names_manual_repair_not_gateway_install(monkeypatch, tmp_path, capsys, scope_name, edit_cmd):
+    """A serve unit without ``RestartPreventExitStatus=78`` crash-loops on an exit-78
+    refusal, but ``hermes gateway install`` rewrites only the gateway unit — naming it
+    as the repair sends the user in circles (reinstall, warning persists). Name the
+    manual drop-in instead. A parked serve unit stays silent."""
+    from hermes_cli import gateway as gateway_cli
+
+    unit_dir = tmp_path / "units"
+    unit_dir.mkdir()
+    stale = unit_dir / "hermes-serve.service"
+    stale.write_text("[Service]\nRestart=always\nRestartSec=5\n", encoding="utf-8")
+    if scope_name == "system":
+        monkeypatch.setattr(gateway_cli, "_SYSTEM_UNIT_DIR", unit_dir)
+    else:
+        monkeypatch.setattr(gateway_cli, "user_systemd_unit_dir", lambda: unit_dir)
+    monkeypatch.setattr(gateway_cli, "get_service_name", lambda: "hermes-gateway")
+
+    fleet._repair_unit_without_fatal_exit_park("hermes-serve", scope_name)
+    out = capsys.readouterr().out
+    assert "hermes-serve lacks RestartPreventExitStatus=78" in out
+    assert "Repair: hermes gateway install" not in out
+    assert "Repair: sudo hermes gateway install" not in out
+    assert edit_cmd in out
+
+    stale.write_text("[Service]\nRestart=always\nRestartPreventExitStatus=78\n", encoding="utf-8")
+    fleet._repair_unit_without_fatal_exit_park("hermes-serve", scope_name)
+    assert capsys.readouterr().out == ""

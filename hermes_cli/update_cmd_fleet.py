@@ -1251,7 +1251,10 @@ def _repair_unit_without_fatal_exit_park(svc_name: str, scope: str) -> None:
     """A unit whose restart policy predates ``RestartPreventExitStatus=78`` crash-loops on the PERMANENT
     exit: a ``Restart=on-failure`` system unit restarted ~180x on a host-attach refusal while the
     regenerated user units parked (#118282). The gateway rewrites its USER unit at boot; a SYSTEM unit
-    lives in /etc, so rewrite it here when we are root, else name the repair."""
+    lives in /etc, so rewrite it here when we are root, else name the repair.
+
+    Serve/dashboard units have no installer (``hermes gateway install`` rewrites only the gateway
+    unit), so they get a manual drop-in repair instead of a reinstall hint that can never clear."""
     from hermes_cli.gateway import (
         _SYSTEM_UNIT_DIR, GATEWAY_FATAL_CONFIG_EXIT_CODE, get_service_name,
         refresh_systemd_unit_if_needed, user_systemd_unit_dir,
@@ -1264,7 +1267,8 @@ def _repair_unit_without_fatal_exit_park(svc_name: str, scope: str) -> None:
         return
     if parked:
         return
-    if system and not _needs_sudo(scope) and svc_name == get_service_name():
+    gateway_unit = get_service_name()
+    if system and not _needs_sudo(scope) and svc_name == gateway_unit:
         # The refresh adopts the unit's HERMES_HOME into os.environ (sudo strips it); the rest of the
         # update keeps running for the invoking profile.
         launch_home = os.environ.get("HERMES_HOME")
@@ -1275,6 +1279,15 @@ def _repair_unit_without_fatal_exit_park(svc_name: str, scope: str) -> None:
                 os.environ.pop("HERMES_HOME", None)
             else:
                 os.environ["HERMES_HOME"] = launch_home
+        return
+    if svc_name != gateway_unit and not svc_name.startswith(f"{gateway_unit}-"):
+        print(
+            f"  ⚠ {svc_name} lacks RestartPreventExitStatus={GATEWAY_FATAL_CONFIG_EXIT_CODE}: a permanent refusal "
+            f"(exit {GATEWAY_FATAL_CONFIG_EXIT_CODE}) would crash-loop it instead of parking.\n"
+            f"    Repair: no installer owns this unit (`hermes gateway install` rewrites only the gateway unit):\n"
+            f"      {'sudo ' if system else ''}systemctl {'--user ' if not system else ''}edit {svc_name}.service\n"
+            f"    then add under [Service]: RestartPreventExitStatus={GATEWAY_FATAL_CONFIG_EXIT_CODE}"
+        )
         return
     print(
         f"  ⚠ {svc_name} lacks RestartPreventExitStatus={GATEWAY_FATAL_CONFIG_EXIT_CODE}: a permanent refusal "
